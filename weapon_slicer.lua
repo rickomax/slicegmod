@@ -226,7 +226,6 @@ function SWEP:PrimaryAttack()
 			local planePosition = self:GetTPlanePosition()
 			local planeDistance = self:GetTPlaneDistance()
 			local matrix = side:GetWorldTransformMatrix()
-			local mesh = side:GetRenderMesh()
 			--TODO: GET CLIENT-SIDE MESH, WAITING THIS FEATURE FROM GMOD :C
 		end
 	end
