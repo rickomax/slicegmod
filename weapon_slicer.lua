@@ -153,6 +153,30 @@ function SplitMesh(mesh, matrix, planeDirection, planeDistance)
 			end
 		end
 	end
+	for index = 1, #sideMesh, 3 do
+		local a = sideMesh[index]
+		local b = sideMesh[index+1]
+		local c = sideMesh[index+2]
+		local aPos = matrix * a.pos
+		local bPos = matrix * b.pos
+		local cPos = matrix * c.pos
+		debugoverlay.Triangle(aPos,bPos,cPos,20,Color(255,255,0),true)
+		debugoverlay.Line(aPos, bPos, 20, Color(0,0,0),true)
+		debugoverlay.Line(bPos, cPos, 20, Color(0,0,0),true)
+		debugoverlay.Line(cPos, aPos, 20, Color(0,0,0),true)
+	end
+	for index = 1, #notSideMesh, 3 do
+		local a = notSideMesh[index]
+		local b = notSideMesh[index+1]
+		local c = notSideMesh[index+2]
+		local aPos = matrix * a.pos
+		local bPos = matrix * b.pos
+		local cPos = matrix * c.pos
+		debugoverlay.Triangle(aPos,bPos,cPos,20,Color(0,255,0),true)
+		debugoverlay.Line(aPos, bPos, 20, Color(0,0,0),true)
+		debugoverlay.Line(bPos, cPos, 20, Color(0,0,0),true)
+		debugoverlay.Line(cPos, aPos, 20, Color(0,0,0),true)
+	end
 	return sideMesh, notSideMesh
 end
 
