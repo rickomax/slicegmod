@@ -48,7 +48,7 @@ function SWEP:PrimaryAttack()
 			self.Owner:LagCompensation(true)
 		end
 		local startpos = self.Owner:GetShootPos()
-		local endpos = self.Owner:GetShootPos() + self.Owner:GetAimVector() * 100
+		local endpos = startpos + self.Owner:GetAimVector() * 100
 		local trace = util.TraceLine({
 			start = startpos,
 			endpos = endpos,
