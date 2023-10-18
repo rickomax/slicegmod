@@ -1,5 +1,5 @@
 # SLICE GMOD
-[![Watch the video](https://img.youtube.com/vi/5lE7eQ7ALM4/default.jpg)]([https://youtu.be/nTQUwghvy5Q](https://www.youtube.com/watch?v=5lE7eQ7ALM4))<br>
+[![Watch the video](https://img.youtube.com/vi/5lE7eQ7ALM4/default.jpg)](https://www.youtube.com/watch?v=5lE7eQ7ALM4)<br>
 
 GMOD - Partial mesh slice weapon implementation.
 
