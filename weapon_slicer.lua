@@ -37,6 +37,55 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Entity", 2, "NotSideEntity")
 	self:NetworkVar("Vector", 3, "SlicePlaneDirection")
 	self:NetworkVar("Float",  4, "SlicePlaneDistance")
+	self:NetworkVar("Vector", 5, "SideBoundsMin")
+	self:NetworkVar("Vector", 6, "SideBoundsMax")
+	self:NetworkVar("Vector", 7, "NotSideBoundsMin")
+	self:NetworkVar("Vector", 8, "NotSideBoundsMax")
+end
+
+function GatherVertices(sideTriangles, notSideTriangles) 
+    local sideVertices = {}
+    local notSideVertices = {}
+    local sideBounds = {min = Vector( math.huge, math.huge, math.huge), max = Vector(-math.huge, -math.huge, -math.huge)}
+    local notSideBounds = {min = Vector( math.huge, math.huge, math.huge), max = Vector(-math.huge, -math.huge, -math.huge)}
+
+    -- Helper function to update bounds
+    local function updateBounds(bounds, vertex)
+        bounds.min[1] = math.min(bounds.min[1], vertex[1])
+        bounds.min[2] = math.min(bounds.min[2], vertex[2])
+        bounds.min[3] = math.min(bounds.min[3], vertex[3])
+        bounds.max[1] = math.max(bounds.max[1], vertex[1])
+        bounds.max[2] = math.max(bounds.max[2], vertex[2])
+        bounds.max[3] = math.max(bounds.max[3], vertex[3])
+    end
+
+    -- Process sideTriangles
+    for index = 1, #sideTriangles, 3 do
+        local a = sideTriangles[index]
+        local b = sideTriangles[index+1]
+        local c = sideTriangles[index+2]
+        table.insert(sideVertices, a.pos)
+        table.insert(sideVertices, b.pos)
+        table.insert(sideVertices, c.pos)
+        updateBounds(sideBounds, a.pos)
+        updateBounds(sideBounds, b.pos)
+        updateBounds(sideBounds, c.pos)
+    end
+
+    -- Process notSideTriangles
+    for index = 1, #notSideTriangles, 3 do
+        local sa = notSideTriangles[index]
+        local sb = notSideTriangles[index+1]
+        local sc = notSideTriangles[index+2]
+        table.insert(notSideVertices, sa.pos)
+        table.insert(notSideVertices, sb.pos)
+        table.insert(notSideVertices, sc.pos)
+        updateBounds(notSideBounds, sa.pos)
+        updateBounds(notSideBounds, sb.pos)
+        updateBounds(notSideBounds, sc.pos)
+    end
+
+    return sideVertices, notSideVertices, sideBounds, notSideBounds
 end
 
 function SWEP:PrimaryAttack()
@@ -60,27 +109,48 @@ function SWEP:PrimaryAttack()
 		if (IsValid(trace.Entity)) then
 			local sideEntity = trace.Entity
 			sidePhysObject = sideEntity:GetPhysicsObject()
+			sideMass = sidePhysObject:GetMass()
 			sidePhysMesh = sidePhysObject:GetMesh()
 			if (sidePhysMesh) then
 				local planePosition = trace.HitPos
 				local planeDirection = self.Owner:GetAngles():Right()
 				local planeDistance = GetPlaneDistance(planeDirection, planePosition)
-				local sideMesh, notSideMesh = SplitMesh(sidePhysMesh, sidePhysObject:GetPositionMatrix(), planeDirection, planeDistance)	
-				sideEntity:PhysicsFromMesh(sideMesh)
-				sidePhysObject = sideEntity:GetPhysicsObject()
-				sidePhysObject:ApplyForceCenter(-planeDirection * sidePhysObject:GetMass())
+
+				local sideTriangles, notSideTriangles = SplitMesh(sidePhysMesh, sidePhysObject:GetPositionMatrix(), planeDirection, planeDistance)	
+				local sideVertices, notSideVertices, sideBounds, notSideBounds = GatherVertices(sideTriangles, notSideTriangles)
+
+				local sidePos = sideEntity:GetPos()
+				local notSidePos = sideEntity:GetPos()
+				
+				sidePos:Add(planeDirection * 1.0)
+				sideEntity:SetPos(sidePos, true)
+				sideEntity:SetCollisionBounds(sideBounds.min, sideBounds.max)
+				sideEntity:SetSurroundingBounds(sideBounds.min, sideBounds.max)
+				sideEntity:PhysicsInitConvex(sideVertices)
+				local newSidePhysObject = sideEntity:GetPhysicsObject()
+				newSidePhysObject:SetMass(sideMass)
+
 				local notSideEntity = ents.Create(sideEntity:GetClass())
-				notSideEntity:SetModel(sideEntity:GetModel())
-				notSideEntity:SetPos(sideEntity:GetPos())
+				notSidePos:Add(-planeDirection * 1.0)
+				notSideEntity:SetPos(notSidePos)
 				notSideEntity:SetAngles(sideEntity:GetAngles())
+				notSideEntity:SetModel(sideEntity:GetModel())
 				notSideEntity:Spawn()
-				notSideEntity:PhysicsFromMesh(notSideMesh)	
+				notSideEntity:SetCollisionBounds(notSideBounds.min, notSideBounds.max)	
+				notSideEntity:SetSurroundingBounds(notSideBounds.min, notSideBounds.max)	
+				notSideEntity:PhysicsInitConvex(notSideVertices)
 				local notSidePhysObject = notSideEntity:GetPhysicsObject()
-				notSidePhysObject:ApplyForceCenter(planeDirection * notSidePhysObject:GetMass())
+				notSidePhysObject:SetMass(sideMass)
+
 				self:SetSlicePlaneDirection(planeDirection)
 				self:SetSlicePlaneDistance(planeDistance)
 				self:SetSideEntity(sideEntity)
 				self:SetNotSideEntity(notSideEntity)
+
+				self:SetSideBoundsMin(sideBounds.min)
+				self:SetSideBoundsMax(sideBounds.max)
+				self:SetNotSideBoundsMin(notSideBounds.min)
+				self:SetNotSideBoundsMax(notSideBounds.max)
 			end
 		end
 	else
@@ -93,6 +163,8 @@ function SWEP:PrimaryAttack()
 			local meshes = sideEntity.meshes or util.GetModelMeshes(model)
 			local notSideEntity = self:GetNotSideEntity()
 			sideEntity.meshes, notSideEntity.meshes = SplitMultiMesh(meshes, matrix, planeDirection, planeDistance)
+			sideEntity:SetRenderBounds(self:GetSideBoundsMin(), self:GetSideBoundsMax())
+			notSideEntity:SetRenderBounds(self:GetNotSideBoundsMin(), self:GetNotSideBoundsMax())
 			sideEntity.RenderOverride = function()
 				RenderSlice(sideEntity)
 			end
@@ -307,7 +379,7 @@ function RenderSlice(entity)
 			render.SetMaterial(material)
 			mesh.triangles:Draw()
 		end
-		entity:CreateShadow()
+		--entity:CreateShadow()
 		cam.PopModelMatrix()
 	end
 end
